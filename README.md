@@ -1,4 +1,8 @@
-Snoopy is a small and portable packet analyzer for Windows. It doesn't install any driver like LibPcap and it's contained to a single exe file for portability. Also it's just 200 lines of code.
+# Portable Command Line Packet Sniffer for Windows 
+
+Snoopy is a small and portable packet analyzer for Windows command line. It doesn't install any driver like LibPcap and it's contained to a single exe file for portability. Also it's just 200 lines of code.
+
+![snoopy](https://raw.githubusercontent.com/tenox7/snoopy/master/screenshot.gif "Snoopy Screenshot")
 
 You bind to the NIC you want to listen to by specifying it's IP address on the command line. The -v option enables verbose mode where more detailed protocol information is displayed. Currently Snoopy doesn't allow for any filtering, but this can be done by piping output to findstr command.
 

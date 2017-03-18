@@ -4,8 +4,8 @@
 //           |___  | | | | |_| | |_| |  __| \   /      |______|
 //        ---|_____|_|___|_____|_____|_|-----|_|-------|______|----
 //      -------------------------------------------------------------
-// Basic TCP/IP Sniffer for Windows, v1.0 by Antoni Sawicki <as@tenoware.com>   
-// Copyright (c) 2015 by Antoni Sawicki - Lincensed under BSD
+// Basic TCP/IP Sniffer for Windows, v1.1 by Antoni Sawicki <as@tenoware.com>   
+// Copyright (c) 2015-2016 by Antoni Sawicki - Lincensed under BSD
 //
 // Note that this application can only snoop unicast TCP, UDP and ICMP traffic              
 // You cannot listen to layer 2, multicasts, broadcasts, etc.
@@ -14,7 +14,6 @@
 // validate bind to ip address, currently you can bind to /? ;)
 // find best route ip address using GetBestInterface(inet_addr("0.0.0.0"), &bestidx);     
 // add basic filtering options, for now use | findstr                                     
-// add some more protocol analysis, include /etc/services and /etc/protocols as .h                                              
 //                                                                                        
 #define WIN32_LEAN_AND_MEAN                                                               
 #include <winsock2.h>
@@ -25,6 +24,8 @@
 #include <string.h>
 #pragma comment(lib, "ws2_32.lib") 
 #define SIO_RCVALL _WSAIOW(IOC_VENDOR,1)
+
+char *proto[]={"hopopt","ICMP","igmp","ggp","ipv4","st","TCP","cbt","egp","igp","bbn-rcc","nvp","pup","argus","emcon","xnet","chaos","UDP","mux","dcn","hmp","prm","xns-idp","trunk-1","trunk-2","leaf-1","leaf-2","rdp","irtp","iso-tp4","netblt","mfe-nsp","merit-inp","dccp","3pc","idpr","xtp","ddp","idpr-cmtp","tp++","il","ipv6","sdrp","ipv6-route","ipv6-frag","idrp","rsvp","gre","dsr","bna","esp","ah","i-nlsp","swipe","narp","mobile","tlsp","skip","ipv6-icmp","ipv6-nonxt","ipv6-opts","Unknown","cftp","Unknown","sat-expak","kryptolan","rvd","ippc","Unknown","sat-mon","visa","ipcv","cpnx","cphb","wsn","pvp","br-sat-mon","sun-nd","wb-mon","wb-expak","iso-ip","vmtp","secure-vmtp","vines","ttp","nsfnet-igp","dgp","tcf","eigrp","ospf","sprite-rpc","larp","mtp","ax.25","ipip","micp","scc-sp","etherip","encap","Unknown","gmtp","ifmp","pnni","pim","aris","scps","qnx","a/n","ipcomp","snp","compaq-peer","ipx-in-ip","vrrp","pgm","Unknown","l2tp","ddx","iatp","stp","srp","uti","smp","sm","ptp","isis","fire","crtp","crdup","sscopmce","iplt","sps","pipe","sctp","fc","rsvp-e2e-ignore","mobility-header","udplite","mpls-in-ip","manet","hip","shim6","wesp","rohc"};
 
 typedef struct _IP_HEADER_ {
    BYTE  ip_hl:4, ip_v:4;
@@ -65,7 +66,8 @@ typedef struct _ICMP_HEADER_ {
 
 void errpt(char *msg, ...) {
     va_list valist;
-    char vaBuff[1024], errBuff[1024];
+    char vaBuff[1024]={0};
+    char errBuff[1024]={0};
     DWORD err;
 
     va_start(valist, msg); 
@@ -110,13 +112,13 @@ int main(int argc, char **argv) {                //                   .o.
     }
     
     WSAStartup(MAKEWORD(2,2), &sa_data);
-	snoop_sock=socket(AF_INET, SOCK_RAW, IPPROTO_IP);
-	if(snoop_sock==SOCKET_ERROR) 
+    snoop_sock=WSASocket(AF_INET, SOCK_RAW, IPPROTO_IP, NULL, 0, 0);
+    if(snoop_sock==SOCKET_ERROR) 
         errpt("Opening Socket");
     
     snoop_addr.sin_family = AF_INET;
-	snoop_addr.sin_port = htons(0);
-	snoop_addr.sin_addr.s_addr = inet_addr(argaddr);
+    snoop_addr.sin_port = htons(0);
+    snoop_addr.sin_addr.s_addr = inet_addr(argaddr);
     printf("Binding to %s\n", argaddr);
 
     if(bind(snoop_sock, (struct sockaddr *)&snoop_addr, sizeof(snoop_addr))==SOCKET_ERROR) 
@@ -148,12 +150,13 @@ int main(int argc, char **argv) {                //                   .o.
         strcpy(dst_ip, inet_ntoa(in));
         
         GetLocalTime(&lt);
-        
+
+
         // TCP
         if(ip_header->protocol==6) {
+            printf("%02d:%02d:%02d.%03d %s ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, proto[ip_header->protocol]);
             tcp_header=(TCPHEADER*) &packet[ip_header->ip_hl*sizeof(DWORD)];
             flags=(ntohs(tcp_header->info_ctrl) & 0x003F); 
-            printf("%02d:%02d:%02d.%03d TCP ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
             printf("%s:%ld -> %s:%ld ", src_ip, htons(tcp_header->source_port), dst_ip, htons(tcp_header->destination_port));
             if(flags & 0x01) printf("FIN ");
             if(flags & 0x02) printf("SYN ");
@@ -168,15 +171,15 @@ int main(int argc, char **argv) {                //                   .o.
         
         // UDP
         else if(ip_header->protocol==17) {
+            printf("%02d:%02d:%02d.%03d %s ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, proto[ip_header->protocol]);
             udp_header=(UDPHEADER*) &packet[ip_header->ip_hl*sizeof(DWORD)];
-            printf("%02d:%02d:%02d.%03d UDP ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
             printf("%s:%ld -> %s:%ld ", src_ip, htons(udp_header->source_port), dst_ip, htons(udp_header->destination_port));
         }
         
         // ICMP
         else if(ip_header->protocol==1) {
+            printf("%02d:%02d:%02d.%03d %s ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, proto[ip_header->protocol]);
             icmp_header=(ICMPHEADER*) &packet[ip_header->ip_hl*sizeof(DWORD)];
-            printf("%02d:%02d:%02d.%03d ICMP ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds);
             printf("%s -> %s ", src_ip, dst_ip);
             printf("type %d code %d ", icmp_header->type, icmp_header->code);
                  if(icmp_header->type==0) printf("[echo reply] ");
@@ -187,14 +190,15 @@ int main(int argc, char **argv) {                //                   .o.
         }
         
         else {
-            printf("%02d:%02d:%02d.%03d >>> Unknown protocol=0x%x ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, ip_header->protocol);
+        printf("%02d:%02d:%02d.%03d %s ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, proto[ip_header->protocol]);
             printf("%s -> %s ", src_ip, dst_ip);
         }
 
         if(verbose) printf("dscp %u ecn %u ttl %u ", ip_header->tos_dscp, ip_header->tos_ecn, ip_header->ttl);
         if(ntohs(ip_header->flags) & 0x4000) printf("DF ");
+        end:
         putchar('\n');
         fflush(stdout); // helps findstr
-    } 
+   } 
    return 0;
 }
