@@ -5,7 +5,7 @@
 //        ---|_____|_|___|_____|_____|_|-----|_|-------|______|----
 //      -------------------------------------------------------------
 // Basic TCP/IP Sniffer for Windows, v1.1 by Antoni Sawicki <as@tenoware.com>   
-// Copyright (c) 2015-2016 by Antoni Sawicki - Lincensed under BSD
+// Copyright (c) 2015-2016 by Antoni Sawicki - Lincensed under Apache 2.0
 //
 // Note that this application can only snoop unicast TCP, UDP and ICMP traffic              
 // You cannot listen to layer 2, multicasts, broadcasts, etc.
