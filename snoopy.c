@@ -26,6 +26,8 @@
 #pragma comment(lib, "ws2_32.lib")
 #define SIO_RCVALL _WSAIOW(IOC_VENDOR,1)
 
+#define BUFFER_SIZE 65536
+
 char* proto[] = { "hopopt","ICMP","igmp","ggp","ipv4","st","TCP","cbt","egp","igp","bbn-rcc","nvp","pup","argus","emcon","xnet","chaos","UDP","mux","dcn","hmp","prm","xns-idp","trunk-1","trunk-2","leaf-1","leaf-2","rdp","irtp","iso-tp4","netblt","mfe-nsp","merit-inp","dccp","3pc","idpr","xtp","ddp","idpr-cmtp","tp++","il","ipv6","sdrp","ipv6-route","ipv6-frag","idrp","rsvp","gre","dsr","bna","esp","ah","i-nlsp","swipe","narp","mobile","tlsp","skip","ipv6-icmp","ipv6-nonxt","ipv6-opts","Unknown","cftp","Unknown","sat-expak","kryptolan","rvd","ippc","Unknown","sat-mon","visa","ipcv","cpnx","cphb","wsn","pvp","br-sat-mon","sun-nd","wb-mon","wb-expak","iso-ip","vmtp","secure-vmtp","vines","ttp","nsfnet-igp","dgp","tcf","eigrp","ospf","sprite-rpc","larp","mtp","ax.25","ipip","micp","scc-sp","etherip","encap","Unknown","gmtp","ifmp","pnni","pim","aris","scps","qnx","a/n","ipcomp","snp","compaq-peer","ipx-in-ip","vrrp","pgm","Unknown","l2tp","ddx","iatp","stp","srp","uti","smp","sm","ptp","isis","fire","crtp","crdup","sscopmce","iplt","sps","pipe","sctp","fc","rsvp-e2e-ignore","mobility-header","udplite","mpls-in-ip","manet","hip","shim6","wesp","rohc" };
 
 typedef struct _IP_HEADER_ {
@@ -94,7 +96,7 @@ int main(int argc, char** argv) {                       //                   .o.
     ICMPHEADER* icmp_header;                            //              | -------------------|
     BYTE        flags;                                  //              |____________________|
     DWORD       optval = 1, dwLen = 0, verbose = 0;     //                |~~~~~~~~~~~~~~~~|
-    char        packet[65535];                          //            jgs | ---------------|  ,
+    char*       packet;                                 //            jgs | ---------------|  ,
     char*       argaddr;                                //            \|  | _______________| / /
     struct      in_addr in;                             //         \. \,\\|, .   .   /,  / |///, /
     char        src_ip[20], dst_ip[20];
@@ -130,16 +132,20 @@ int main(int argc, char** argv) {                       //                   .o.
     if (WSAIoctl(snoop_sock, SIO_RCVALL, &optval, sizeof(optval), NULL, 0, &dwLen, NULL, NULL) == SOCKET_ERROR)
         errpt("SIO_RCVALL");
 
+    packet = (char*)HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, BUFFER_SIZE);
+    if (packet == NULL)
+        errpt("Unable to allocate memory");
+
     while (1) {
-        memset(packet, 0, sizeof(packet));
-        memset(src_ip, 0, sizeof(src_ip));
-        memset(dst_ip, 0, sizeof(dst_ip));
+        ZeroMemory(packet, BUFFER_SIZE);
+        ZeroMemory(src_ip, sizeof(src_ip));
+        ZeroMemory(dst_ip, sizeof(dst_ip));
         ip_header = NULL;
         tcp_header = NULL;
         udp_header = NULL;
         icmp_header = NULL;
 
-        if (recv(snoop_sock, packet, sizeof(packet), 0) < sizeof(IPHEADER))
+        if (recv(snoop_sock, packet, BUFFER_SIZE, 0) < sizeof(IPHEADER))
             continue;
 
         ip_header = (IPHEADER*)packet;
