@@ -83,20 +83,20 @@ void errpt(char* msg, ...) {
     ExitProcess(1);
 }
 
-int main(int argc, char** argv) {                //                   .o.
-    struct     sockaddr_in snoop_addr;           //                   |  |    _   ,
-    SOCKET     snoop_sock = -1;                  //                 .',  L.-'` `\ ||
-    WSADATA    sa_data;                          //               __\___,|__--,__`_|__
-    IPHEADER* ip_header;                       //              |    %     `=`       |
-    TCPHEADER* tcp_header;                      //              | ___%_______________|
-    UDPHEADER* udp_header;                      //              |    `               |
-    ICMPHEADER* icmp_header;                     //              | -------------------|
-    BYTE       flags;                            //              |____________________|
-    DWORD      optval = 1, dwLen = 0, verbose = 0;     //                |~~~~~~~~~~~~~~~~|
-    char       packet[65535];                    //            jgs | ---------------|  ,
-    char* argaddr;                         //            \|  | _______________| / /
-    struct     in_addr in;                       //         \. \,\\|, .   .   /,  / |///, /
-    char       src_ip[20], dst_ip[20];
+int main(int argc, char** argv) {                       //                   .o.
+    struct      sockaddr_in snoop_addr;                 //                   |  |    _   ,
+    SOCKET      snoop_sock = -1;                        //                 .',  L.-'` `\ ||
+    WSADATA     sa_data;                                //               __\___,|__--,__`_|__
+    IPHEADER*   ip_header;                              //              |    %     `=`       |
+    TCPHEADER*  tcp_header;                             //              | ___%_______________|
+    UDPHEADER*  udp_header;                             //              |    `               |
+    ICMPHEADER* icmp_header;                            //              | -------------------|
+    BYTE        flags;                                  //              |____________________|
+    DWORD       optval = 1, dwLen = 0, verbose = 0;     //                |~~~~~~~~~~~~~~~~|
+    char        packet[65535];                          //            jgs | ---------------|  ,
+    char*       argaddr;                                //            \|  | _______________| / /
+    struct      in_addr in;                             //         \. \,\\|, .   .   /,  / |///, /
+    char        src_ip[20], dst_ip[20];
     SYSTEMTIME lt;
 
     if (argc < 2)
