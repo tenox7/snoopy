@@ -11,7 +11,6 @@
 // You cannot listen to layer 2, multicasts, broadcasts, etc.
 //
 // todo:
-// validate bind to ip address, currently you can bind to /? ;)
 // find best route ip address using GetBestInterface(inet_addr("0.0.0.0"), &bestidx);
 // add basic filtering options, for now use | findstr
 //
@@ -119,6 +118,8 @@ int main(int argc, char** argv) {                //                   .o.
     snoop_addr.sin_family = AF_INET;
     snoop_addr.sin_port = htons(0);
     snoop_addr.sin_addr.s_addr = inet_addr(argaddr);
+    if (snoop_addr.sin_addr.s_addr == INADDR_NONE)
+        errpt("Incorrect IP address");
 
     printf("Binding to %s\n", argaddr);
 
