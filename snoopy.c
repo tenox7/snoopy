@@ -14,7 +14,9 @@
 //
 // todo:
 // find best route ip address using GetBestInterface(inet_addr("0.0.0.0"), &bestidx);
-// add basic filtering options, for now use | findstr
+// basic filtering options, for now use | findstr
+// name resolution
+// ipv6
 //
 #define WIN32_LEAN_AND_MEAN
 #include <winsock2.h>
@@ -113,7 +115,9 @@ int main(int argc, char** argv) {                       //                   .o.
             argaddr = argv[2];
     }
 
-    WSAStartup(MAKEWORD(2, 2), &sa_data);
+    if (WSAStartup(MAKEWORD(2, 2), &sa_data)!=0)
+        errpt("Starting WSA");
+
     snoop_sock = WSASocket(AF_INET, SOCK_RAW, IPPROTO_IP, NULL, 0, 0);
     if (snoop_sock == SOCKET_ERROR)
         errpt("Opening Socket");
