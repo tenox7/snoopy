@@ -67,20 +67,19 @@ typedef struct _ICMP_HEADER_ {
 
 void errpt(char* msg, ...) {
     va_list valist;
-    char vaBuff[1024] = { 0 };
     char errBuff[1024] = { 0 };
     DWORD err;
 
+    printf("ERROR: ");
     va_start(valist, msg);
-    _vsnprintf(vaBuff, sizeof(vaBuff), msg, valist);
+    vprintf(msg, valist);
     va_end(valist);
-    printf("ERROR: %s\n", vaBuff);
     err = WSAGetLastError();
     if (err) {
         FormatMessageA(FORMAT_MESSAGE_FROM_SYSTEM | FORMAT_MESSAGE_IGNORE_INSERTS, NULL, err, MAKELANGID(LANG_NEUTRAL, SUBLANG_DEFAULT), errBuff, sizeof(errBuff), NULL);
-        printf("%d [%08X] %s\n\n", err, err, errBuff);
+        printf("%d [%08X] %s\n", err, err, errBuff);
     }
-    printf("\n\n");
+    printf("\n");
     WSACleanup();
     ExitProcess(1);
 }
