@@ -10,10 +10,9 @@
 // Lincensed under BSD
 //
 // Note that this application can only snoop unicast TCP, UDP and ICMP traffic
-// You cannot listen to layer 2, multicasts, broadcasts, etc.
+// You cannot listen to layer 2, multicasts, broadcasts, etc. Also IPv4 only.
 //
 // todo:
-// find best route ip address using GetBestInterface(inet_addr("0.0.0.0"), &bestidx);
 // basic filtering options, for now use | findstr
 // name resolution
 // ipv6
@@ -26,9 +25,11 @@
 #include <stdlib.h>
 #include <string.h>
 #pragma comment(lib, "ws2_32.lib")
+#pragma comment(lib, "iphlpapi.lib")
 #define SIO_RCVALL _WSAIOW(IOC_VENDOR,1)
-
 #define BUFFER_SIZE 65536
+#define USAGE "\rUsage:\n\n%s [-v] <ipaddr>\n\nipaddr : local IP address on the NIC you want to attach to\n" \
+"    -v : verbose mode, print more detailed protocol info\n\nv1.0 written by Antoni Sawicki <as@tenoware.com>\n"
 
 char* proto[] = { "hopopt","ICMP","igmp","ggp","ipv4","st","TCP","cbt","egp","igp","bbn-rcc","nvp","pup","argus","emcon","xnet","chaos","UDP","mux","dcn","hmp","prm","xns-idp","trunk-1","trunk-2","leaf-1","leaf-2","rdp","irtp","iso-tp4","netblt","mfe-nsp","merit-inp","dccp","3pc","idpr","xtp","ddp","idpr-cmtp","tp++","il","ipv6","sdrp","ipv6-route","ipv6-frag","idrp","rsvp","gre","dsr","bna","esp","ah","i-nlsp","swipe","narp","mobile","tlsp","skip","ipv6-icmp","ipv6-nonxt","ipv6-opts","Unknown","cftp","Unknown","sat-expak","kryptolan","rvd","ippc","Unknown","sat-mon","visa","ipcv","cpnx","cphb","wsn","pvp","br-sat-mon","sun-nd","wb-mon","wb-expak","iso-ip","vmtp","secure-vmtp","vines","ttp","nsfnet-igp","dgp","tcf","eigrp","ospf","sprite-rpc","larp","mtp","ax.25","ipip","micp","scc-sp","etherip","encap","Unknown","gmtp","ifmp","pnni","pim","aris","scps","qnx","a/n","ipcomp","snp","compaq-peer","ipx-in-ip","vrrp","pgm","Unknown","l2tp","ddx","iatp","stp","srp","uti","smp","sm","ptp","isis","fire","crtp","crdup","sscopmce","iplt","sps","pipe","sctp","fc","rsvp-e2e-ignore","mobility-header","udplite","mpls-in-ip","manet","hip","shim6","wesp","rohc" };
 
@@ -88,6 +89,41 @@ void errpt(char* msg, ...) {
     ExitProcess(1);
 }
 
+IN_ADDR getIpAddr() {
+    DWORD idx, status, size=0, i;
+    PMIB_IPADDRTABLE iptbl;
+    IN_ADDR ip;
+
+    status=GetBestInterface(inet_addr("0.0.0.0"), &idx);
+    if (status != NO_ERROR)
+        errpt("GetBestInterface(): %d", status);
+
+    iptbl = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, sizeof(MIB_IPADDRTABLE));
+    if (iptbl == NULL)
+        errpt("Unable to allocate memory for iptbl size");
+
+    GetIpAddrTable(iptbl, &size, 0);
+    HeapFree(GetProcessHeap(), 0, iptbl);
+    iptbl = HeapAlloc(GetProcessHeap(), HEAP_ZERO_MEMORY, size);
+    if (iptbl == NULL)
+        errpt("Unable to allocate memory for IP Table");
+
+    status = GetIpAddrTable(iptbl, &size, 0);
+    if (status != NO_ERROR)
+        errpt("GetIpAddrTable Err=%d", status);
+
+    ip.S_un.S_addr = INADDR_NONE;
+    for (i = 0; i < iptbl->dwNumEntries; i++) {
+        if (iptbl->table[i].dwIndex == idx) {
+            ip.S_un.S_addr = iptbl->table[i].dwAddr;
+            HeapFree(GetProcessHeap(), 0, iptbl);
+            return ip;
+        }
+    }
+    errpt("No ip address specified and no suitable interface found");
+    return ip;
+}
+
 int main(int argc, char** argv) {                       //                   .o.
     struct      sockaddr_in snoop_addr;                 //                   |  |    _   ,
     SOCKET      snoop_sock = -1;                        //                 .',  L.-'` `\ ||
@@ -99,21 +135,25 @@ int main(int argc, char** argv) {                       //                   .o.
     BYTE        flags;                                  //              |____________________|
     DWORD       optval = 1, dwLen = 0, verbose = 0;     //                |~~~~~~~~~~~~~~~~|
     char*       packet;                                 //            jgs | ---------------|  ,
-    char*       argaddr;                                //            \|  | _______________| / /
-    struct      in_addr in;                             //         \. \,\\|, .   .   /,  / |///, /
+    IN_ADDR     bindIP;                                 //            \|  | _______________| / /
+    IN_ADDR     pktIP;                                  //         \. \,\\|, .   .   /,  / |///, /
     char        src_ip[20], dst_ip[20];
-    SYSTEMTIME lt;
+    SYSTEMTIME  lt;
 
-    if (argc < 2)
-        errpt("\rUsage:\n\n%s [-v] <ipaddr>\n\nipaddr : local IP address on the NIC you want to attach to\n"
-            "    -v : verbose mode, print more detailed protocol info\n\nv1.0 written by Antoni Sawicki <as@tenoware.com>\n", argv[0]);
-
-    argaddr = argv[1];
-    if ((argv[1][0] == '-' || argv[1][0] == '/') && argv[1][1] == 'v') {
-        verbose = 1;
-        if (argc > 2 && argv[2] && strlen(argv[2]))
-            argaddr = argv[2];
+    /*if (argc >) {
+        if ((argv[1][0] == '-' || argv[1][0] == '/') && argv[1][1] == 'v')
+            verbose = 1;
+        else if (isdigit(argv[1][0]))
+            bindIP.S_un.S_addr = inet_addr(argv[1]);
+        else
+            errpt(USAGE);
     }
+    else if (argc == 3) {
+        if ((argv[1][0] == '-' || argv[1][0] == '/') && argv[1][1] == 'v')
+            verbose = 1;
+
+    }*/
+    bindIP = getIpAddr();
 
     if (WSAStartup(MAKEWORD(2, 2), &sa_data)!=0)
         errpt("Starting WSA");
@@ -124,14 +164,14 @@ int main(int argc, char** argv) {                       //                   .o.
 
     snoop_addr.sin_family = AF_INET;
     snoop_addr.sin_port = htons(0);
-    snoop_addr.sin_addr.s_addr = inet_addr(argaddr);
+    snoop_addr.sin_addr = bindIP;
     if (snoop_addr.sin_addr.s_addr == INADDR_NONE)
         errpt("Incorrect IP address");
 
-    printf("Binding to %s\n", argaddr);
+    printf("Binding to %s\n", inet_ntoa(snoop_addr.sin_addr));
 
     if (bind(snoop_sock, (struct sockaddr*)&snoop_addr, sizeof(snoop_addr)) == SOCKET_ERROR)
-        errpt("Bind to %s", argaddr);
+        errpt("Bind to %s", inet_ntoa(snoop_addr.sin_addr));
 
     if (WSAIoctl(snoop_sock, SIO_RCVALL, &optval, sizeof(optval), NULL, 0, &dwLen, NULL, NULL) == SOCKET_ERROR)
         errpt("SIO_RCVALL");
@@ -157,13 +197,12 @@ int main(int argc, char** argv) {                       //                   .o.
         if (ip_header->ip_v != 4)
             continue;
 
-        in.S_un.S_addr = ip_header->src_ip;
-        strcpy(src_ip, inet_ntoa(in));
-        in.S_un.S_addr = ip_header->dst_ip;
-        strcpy(dst_ip, inet_ntoa(in));
+        pktIP.S_un.S_addr = ip_header->src_ip;
+        strcpy(src_ip, inet_ntoa(pktIP));
+        pktIP.S_un.S_addr = ip_header->dst_ip;
+        strcpy(dst_ip, inet_ntoa(pktIP));
 
         GetLocalTime(&lt);
-
 
         // TCP
         if (ip_header->protocol == 6) {
