@@ -28,8 +28,8 @@
 #pragma comment(lib, "iphlpapi.lib")
 #define SIO_RCVALL _WSAIOW(IOC_VENDOR,1)
 #define BUFFER_SIZE 65536
-#define USAGE "\rUsage:\n\n%s [-v] <ipaddr>\n\nipaddr : local IP address on the NIC you want to attach to\n" \
-"    -v : verbose mode, print more detailed protocol info\n\nv1.0 written by Antoni Sawicki <as@tenoware.com>\n"
+#define USAGE "\rUsage:\n\nsnoopy [-v] <ipaddr>\n\nipaddr : local IP address on the NIC you want to attach to\n" \
+"    -v : verbose mode, print more detailed protocol info\n\nv1.2 written by Antoni Sawicki <as@tenoware.com>\n"
 
 char* proto[] = { "hopopt","ICMP","igmp","ggp","ipv4","st","TCP","cbt","egp","igp","bbn-rcc","nvp","pup","argus","emcon","xnet","chaos","UDP","mux","dcn","hmp","prm","xns-idp","trunk-1","trunk-2","leaf-1","leaf-2","rdp","irtp","iso-tp4","netblt","mfe-nsp","merit-inp","dccp","3pc","idpr","xtp","ddp","idpr-cmtp","tp++","il","ipv6","sdrp","ipv6-route","ipv6-frag","idrp","rsvp","gre","dsr","bna","esp","ah","i-nlsp","swipe","narp","mobile","tlsp","skip","ipv6-icmp","ipv6-nonxt","ipv6-opts","Unknown","cftp","Unknown","sat-expak","kryptolan","rvd","ippc","Unknown","sat-mon","visa","ipcv","cpnx","cphb","wsn","pvp","br-sat-mon","sun-nd","wb-mon","wb-expak","iso-ip","vmtp","secure-vmtp","vines","ttp","nsfnet-igp","dgp","tcf","eigrp","ospf","sprite-rpc","larp","mtp","ax.25","ipip","micp","scc-sp","etherip","encap","Unknown","gmtp","ifmp","pnni","pim","aris","scps","qnx","a/n","ipcomp","snp","compaq-peer","ipx-in-ip","vrrp","pgm","Unknown","l2tp","ddx","iatp","stp","srp","uti","smp","sm","ptp","isis","fire","crtp","crdup","sscopmce","iplt","sps","pipe","sctp","fc","rsvp-e2e-ignore","mobility-header","udplite","mpls-in-ip","manet","hip","shim6","wesp","rohc" };
 
@@ -133,27 +133,31 @@ int main(int argc, char** argv) {                       //                   .o.
     UDPHEADER*  udp_header;                             //              |    `               |
     ICMPHEADER* icmp_header;                            //              | -------------------|
     BYTE        flags;                                  //              |____________________|
-    DWORD       optval = 1, dwLen = 0, verbose = 0;     //                |~~~~~~~~~~~~~~~~|
+    DWORD       optval = 1, dwLen = 0;                  //                |~~~~~~~~~~~~~~~~|
     char*       packet;                                 //            jgs | ---------------|  ,
-    IN_ADDR     bindIP;                                 //            \|  | _______________| / /
-    IN_ADDR     pktIP;                                  //         \. \,\\|, .   .   /,  / |///, /
+    IN_ADDR     bindIP = { 0 };                         //            \|  | _______________| / /
+    IN_ADDR     pktIP = { 0 };                          //         \. \,\\|, .   .   /,  / |///, /
     char        src_ip[20], dst_ip[20];
     SYSTEMTIME  lt;
+    int         argn=0, verbose=0, gotIP=0;
 
-    /*if (argc >) {
-        if ((argv[1][0] == '-' || argv[1][0] == '/') && argv[1][1] == 'v')
+    bindIP.S_un.S_addr = INADDR_NONE;
+    for (argn = 1; argn < argc; argn++) {
+        wprintf(L">>> argv[%d]=%S\n", argn, argv[argn]);
+        if ((argv[argn][0] == '-' || argv[argn][0] == '/') && argv[argn][1] == 'v') {
             verbose = 1;
-        else if (isdigit(argv[1][0]))
-            bindIP.S_un.S_addr = inet_addr(argv[1]);
-        else
+        }
+        else if (isdigit(argv[argn][0])) {
+            gotIP = 1;
+            bindIP.S_un.S_addr = inet_addr(argv[argn]);
+        }
+        else {
             errpt(USAGE);
+        }
     }
-    else if (argc == 3) {
-        if ((argv[1][0] == '-' || argv[1][0] == '/') && argv[1][1] == 'v')
-            verbose = 1;
 
-    }*/
-    bindIP = getIpAddr();
+    if (!gotIP)
+        bindIP = getIpAddr();
 
     if (WSAStartup(MAKEWORD(2, 2), &sa_data)!=0)
         errpt("Starting WSA");
