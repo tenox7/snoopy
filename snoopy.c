@@ -4,7 +4,7 @@
 //           |___  | | | | |_| | |_| |  __| \   /      |______|
 //        ---|_____|_|___|_____|_____|_|-----|_|-------|______|----
 //      -------------------------------------------------------------
-// Basic TCP/IP Sniffer for Windows, v1.5 by Antoni Sawicki <as@tenoware.com>
+// Basic TCP/IP Sniffer for Windows, v1.4 by Antoni Sawicki <as@tenoware.com>
 // Copyright (c) 2015-2024 by Antoni Sawicki
 // Lincensed under BSD
 //
