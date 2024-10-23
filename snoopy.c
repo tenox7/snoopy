@@ -4,9 +4,8 @@
 //           |___  | | | | |_| | |_| |  __| \   /      |______|
 //        ---|_____|_|___|_____|_____|_|-----|_|-------|______|----
 //      -------------------------------------------------------------
-// Basic TCP/IP Sniffer for Windows, v1.3 by Antoni Sawicki <as@tenoware.com>
-// Copyright (c) 2015-2016 by Antoni Sawicki
-// Copyright (c) 2021 Google LLC
+// Basic TCP/IP Sniffer for Windows, v1.5 by Antoni Sawicki <as@tenoware.com>
+// Copyright (c) 2015-2024 by Antoni Sawicki
 // Lincensed under BSD
 //
 // Note that this application can only snoop unicast TCP, UDP and ICMP traffic
@@ -29,16 +28,16 @@
 #define SIO_RCVALL _WSAIOW(IOC_VENDOR,1)
 #define BUFFER_SIZE 65536
 #define USAGE "\rUsage:\n\nsnoopy [-v] <ipaddr>\n\nipaddr : local IP address on the NIC you want to attach to\n" \
-"    -v : verbose mode, print more detailed protocol info\n\nv1.3 written by Antoni Sawicki <as@tenoware.com>\n"
+"    -v : verbose mode, print more detailed protocol info\n\nv1.4 written by Antoni Sawicki <as@tenoware.com>\n"
 
-char* proto[] = { "hopopt","ICMP","igmp","ggp","ipv4","st","TCP","cbt","egp","igp","bbn-rcc","nvp","pup","argus","emcon","xnet","chaos","UDP","mux","dcn","hmp","prm","xns-idp","trunk-1","trunk-2","leaf-1","leaf-2","rdp","irtp","iso-tp4","netblt","mfe-nsp","merit-inp","dccp","3pc","idpr","xtp","ddp","idpr-cmtp","tp++","il","ipv6","sdrp","ipv6-route","ipv6-frag","idrp","rsvp","gre","dsr","bna","esp","ah","i-nlsp","swipe","narp","mobile","tlsp","skip","ipv6-icmp","ipv6-nonxt","ipv6-opts","Unknown","cftp","Unknown","sat-expak","kryptolan","rvd","ippc","Unknown","sat-mon","visa","ipcv","cpnx","cphb","wsn","pvp","br-sat-mon","sun-nd","wb-mon","wb-expak","iso-ip","vmtp","secure-vmtp","vines","ttp","nsfnet-igp","dgp","tcf","eigrp","ospf","sprite-rpc","larp","mtp","ax.25","ipip","micp","scc-sp","etherip","encap","Unknown","gmtp","ifmp","pnni","pim","aris","scps","qnx","a/n","ipcomp","snp","compaq-peer","ipx-in-ip","vrrp","pgm","Unknown","l2tp","ddx","iatp","stp","srp","uti","smp","sm","ptp","isis","fire","crtp","crdup","sscopmce","iplt","sps","pipe","sctp","fc","rsvp-e2e-ignore","mobility-header","udplite","mpls-in-ip","manet","hip","shim6","wesp","rohc" };
+const char tcp_flags[8][4] = {"CWR", "ECE", "URG", "ACK", "PSH", "RST", "SYN", "FIN"};
 
 typedef struct _IP_HEADER_ {
     BYTE  ip_hl : 4, ip_v : 4;
-    BYTE  tos_dscp : 6, tos_ecn : 2;
+    BYTE  tos_ecn : 2, tos_dscp : 6;
     WORD  len;
     WORD  id;
-    WORD  flags;
+    WORD  fragmentoffset : 13, rsrvd : 1, DF : 1, MF : 1;
     BYTE  ttl;
     BYTE  protocol;
     WORD  chksum;
@@ -51,7 +50,8 @@ typedef struct _TCP_HEADER_ {
     WORD  destination_port;
     DWORD seq_number;
     DWORD ack_number;
-    WORD  info_ctrl;
+    BYTE  data_offset : 4, rsrvd : 4;
+    BYTE  flags;
     WORD  window;
     WORD  checksum;
     WORD  urgent_pointer;
@@ -212,14 +212,14 @@ int main(int argc, char** argv) {                       //                   .o.
         if (ip_header->protocol == 6) {
             printf("%02d:%02d:%02d.%03d %s ", lt.wHour, lt.wMinute, lt.wSecond, lt.wMilliseconds, proto[ip_header->protocol]);
             tcp_header = (TCPHEADER*)&packet[ip_header->ip_hl * sizeof(DWORD)];
-            flags = (ntohs(tcp_header->info_ctrl) & 0x003F);
             printf("%s:%ld -> %s:%ld ", src_ip, htons(tcp_header->source_port), dst_ip, htons(tcp_header->destination_port));
-            if (flags & 0x01) printf("FIN ");
-            if (flags & 0x02) printf("SYN ");
-            if (flags & 0x04) printf("RST ");
-            if (flags & 0x08) printf("PSH ");
-            if (flags & 0x10) printf("ACK ");
-            if (flags & 0x20) printf("URG ");
+
+            for (flags = 0; flags < sizeof(tcp_flags) / sizeof(*tcp_flags); flags++) {
+                if (tcp_header->flags & (0x80 >> flags)) {
+                    printf("%s ", tcp_flags[flags]);
+                }
+            }
+
             if (verbose) printf("seq %lu ", ntohl(tcp_header->seq_number));
             if (verbose) printf("ack %lu ", ntohl(tcp_header->ack_number));
             if (verbose) printf("win %u ", ntohs(tcp_header->window));
@@ -251,8 +251,8 @@ int main(int argc, char** argv) {                       //                   .o.
         }
 
         if (verbose) printf("dscp %u ecn %u ttl %u ", ip_header->tos_dscp, ip_header->tos_ecn, ip_header->ttl);
-        if (ntohs(ip_header->flags) & 0x4000) printf("DF ");
-    end:
+        if (ip_header->DF) printf("DF ");
+
         putchar('\n');
         fflush(stdout); // helps findstr
     }
